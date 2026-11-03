@@ -1,14 +1,14 @@
 
 'use strict';
 
-/* TRADER LEDGER - Phase 2 Database
-   Offline IndexedDB
+/* TRADER LEDGER - Phase 3 Database
+   Combined Deal System
    All financial amounts stored as integer paise.
 */
 
 const TL_DB = (() => {
   const NAME = 'trader_ledger';
-  const VERSION = 2;
+  const VERSION = 3;
 
   const SCHEMA = {
     settings: {
@@ -41,6 +41,26 @@ const TL_DB = (() => {
     },
     auditLog: {
       idx: [['ts'], ['entity']]
+    },
+
+    // New combined deal records
+    deals: {
+      idx: [
+        ['date'],
+        ['supplierId'],
+        ['customerId'],
+        ['itemName']
+      ]
+    },
+
+    // Separate supplier payments and customer receipts
+    dealPayments: {
+      idx: [
+        ['dealId'],
+        ['partyId'],
+        ['side'],
+        ['date']
+      ]
     }
   };
 
@@ -51,6 +71,7 @@ const TL_DB = (() => {
 
     dbp = new Promise((resolve, reject) => {
       if (!window.indexedDB) {
+        dbp = null;
         return reject(new Error('IndexedDB available nahi hai'));
       }
 
@@ -78,10 +99,12 @@ const TL_DB = (() => {
 
       request.onsuccess = () => {
         const db = request.result;
+
         db.onversionchange = () => {
           db.close();
           dbp = null;
         };
+
         resolve(db);
       };
 
@@ -102,6 +125,7 @@ const TL_DB = (() => {
   function run(storeName, mode, operation) {
     return open().then(db => new Promise((resolve, reject) => {
       let result;
+      let settled = false;
 
       const tx = db.transaction(storeName, mode);
       const store = tx.objectStore(storeName);
@@ -113,19 +137,35 @@ const TL_DB = (() => {
           request.onsuccess = () => {
             result = request.result;
           };
+
           request.onerror = () => {
-            try { tx.abort(); } catch (_) {}
+            try {
+              tx.abort();
+            } catch (_) {}
           };
         }
       } catch (error) {
-        try { tx.abort(); } catch (_) {}
+        try {
+          tx.abort();
+        } catch (_) {}
+
+        settled = true;
         reject(error);
         return;
       }
 
-      tx.oncomplete = () => resolve(result);
+      tx.oncomplete = () => {
+        if (!settled) {
+          settled = true;
+          resolve(result);
+        }
+      };
+
       tx.onerror = tx.onabort = () => {
-        reject(tx.error || new Error('Database transaction fail hua'));
+        if (!settled) {
+          settled = true;
+          reject(tx.error || new Error('Database transaction fail hua'));
+        }
       };
     }));
   }

@@ -621,3 +621,184 @@
         const openingBalanceSide = $('#openingSide').value;
 
         if (!name) throw new Error('Party
+ ka naam zaroori hai');
+
+        const record = {
+          name,
+          phone,
+          type,
+          openingBalancePaise,
+          openingBalanceSide,
+          updatedAt: Date.now()
+        };
+
+        if (idValue) {
+          const id = Number(idValue);
+          const old = await TL_DB.get('parties', id);
+          if (!old) throw new Error('Party nahi mili');
+
+          await TL_DB.put('parties', {
+            ...old,
+            ...record,
+            id
+          });
+          await TL_DB.audit('party', 'update', { id, name });
+          toast('Party update ho gayi');
+        } else {
+          const id = await TL_DB.add('parties', {
+            ...record,
+            createdAt: Date.now()
+          });
+          await TL_DB.audit('party', 'add', { id, name });
+          toast('Party save ho gayi');
+        }
+
+        await route();
+      } catch (err) {
+        toast('Save nahi hua: ' + err.message);
+      }
+    });
+
+    $('#partyCancel').addEventListener('click', reset);
+
+    $('#view').addEventListener('click', async e => {
+      const edit = e.target.closest('[data-edit-party]');
+      const del = e.target.closest('[data-delete-party]');
+
+      if (edit) {
+        const id = Number(edit.dataset.editParty);
+        const p = await TL_DB.get('parties', id);
+        if (!p) return toast('Party nahi mili');
+
+        $('#partyId').value = p.id;
+        $('#partyName').value = p.name || '';
+        $('#partyPhone').value = p.phone || '';
+        $('#partyType').value = p.type || 'customer';
+        $('#openingAmount').value =
+          ((p.openingBalancePaise || 0) / 100).toFixed(2);
+        $('#openingSide').value = p.openingBalanceSide || 'receive';
+        $('#partySave').textContent = 'Changes save karein';
+        $('#partyCancel').hidden = false;
+        return;
+      }
+
+      if (del) {
+        const id = Number(del.dataset.deleteParty);
+        const p = await TL_DB.get('parties', id);
+        if (!p) return toast('Party nahi mili');
+
+        const supplierDeals =
+          await TL_DB.getByIndex('deals', 'supplierId', id);
+        const customerDeals =
+          await TL_DB.getByIndex('deals', 'customerId', id);
+
+        if (supplierDeals.length || customerDeals.length) {
+          return toast('Is party ki deals linked hain. Delete nahi kar sakte.');
+        }
+
+        if (!confirm(
+          '"' + p.name + '" ko delete karna hai? Yeh undo nahi hoga.'
+        )) return;
+
+        try {
+          await TL_DB.remove('parties', id);
+          await TL_DB.audit('party', 'delete', {
+            id,
+            name: p.name
+          });
+          toast('Party delete ho gayi');
+          await route();
+        } catch (err) {
+          toast('Delete nahi hua: ' + err.message);
+        }
+      }
+    });
+  }
+
+  async function route() {
+    let id = location.hash.replace(/^#\/?/, '') || 'home';
+    if (!VIEWS[id]) id = 'home';
+
+    $('#title').textContent = TITLES[id] || 'TRADER LEDGER';
+
+    try {
+      $('#view').innerHTML = await VIEWS[id]();
+
+      document.querySelectorAll('nav [data-k]').forEach(link => {
+        link.classList.toggle('active', link.dataset.k === id);
+      });
+
+      if (id === 'purchase' || id === 'sales') wireDeal();
+      if (id === 'parties') wireParties();
+
+      if (id === 'settings') {
+        const form = $('#f');
+        if (form) {
+          form.addEventListener('submit', async e => {
+            e.preventDefault();
+            await TL_DB.setSetting('businessName', $('#bn').value.trim());
+            toast('Settings save ho gayi');
+            await route();
+          });
+        }
+
+        const persistButton = $('#persist');
+        if (persistButton) {
+          persistButton.addEventListener('click', async () => {
+            try {
+              const ok = await navigator.storage.persist();
+              toast(ok ? 'Storage protected' : 'Storage protection nahi mili');
+              await route();
+            } catch (err) {
+              toast('Error: ' + err.message);
+            }
+          });
+        }
+
+        const installButton = $('#install');
+        if (installButton) {
+          installButton.addEventListener('click', async () => {
+            if (!deferred) {
+              return toast('Install option abhi available nahi hai');
+            }
+            deferred.prompt();
+            await deferred.userChoice;
+            deferred = null;
+            await route();
+          });
+        }
+      }
+
+      window.scrollTo(0, 0);
+    } catch (err) {
+      $('#view').innerHTML =
+        '<p class="note">Screen load nahi hui: ' +
+        esc(err.message) + '</p>';
+    }
+  }
+
+  window.addEventListener('hashchange', route);
+
+  TL_DB.open()
+    .then(route)
+    .catch(err => {
+      $('#view').textContent =
+        'Database error: ' + err.message;
+    });
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('service-worker.js')
+        .catch(() => {});
+    });
+  }
+})();
+
+
+
+
+
+
+
+
+                                   

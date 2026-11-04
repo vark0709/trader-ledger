@@ -69,4 +69,67 @@ select {
 .party-actions button {
   flex: 1;
 }
-          }
+       
+select {
+  width: 100%;
+  background: var(--s1);
+  border: 1px solid var(--line);
+  color: var(--tx);
+  border-radius: 10px;
+  padding: 14px;
+  font: inherit;
+}
+
+.deal-summary {
+  margin-top: 22px;
+  padding: 14px;
+  background: var(--s1);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.deal-summary h3 {
+  color: var(--gold);
+  margin-bottom: 8px;
+}
+
+.deal-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  margin-top: 12px;
+  background: var(--s1);
+}
+
+.deal-card .row {
+  border-bottom: 0;
+}
+
+.deal-card .row strong {
+  display: block;
+}
+
+.deal-card small {
+  display: block;
+  margin-top: 5px;
+}
+
+.deal-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.deal-actions button {
+  flex: 1;
+}
+
+.profit-text {
+  color: #43c982;
+}
+
+.loss-text {
+  color: #ef7777;
+}
+                        
+                       
+                       }
